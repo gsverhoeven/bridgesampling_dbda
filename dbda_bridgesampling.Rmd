@@ -46,6 +46,17 @@ stanfit_H1 <- stan(file = "dbda_biased_coin_factory.stan",
                    chains = 4, seed = 1)
 ```
 
+# Check Stan  fit output
+
+```{r}
+print(stanfit_H0)
+```
+
+```{r}
+print(stanfit_H1)
+```
+
+
 # compute (log) marginal likelihoods
 
 ```{r}
