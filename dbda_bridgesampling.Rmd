@@ -1,0 +1,93 @@
+---
+title: "Reproduce Biased coin factory example from DBDA using bridgesampling"
+author: "Gertjan S Verhoeven (gertjan.verhoeven@gmail.com)"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+  pdf_document:
+fontsize: 11pt
+---
+
+# Summary
+
+To learn and gain confidence in the R package `bridgesampling`, we compare its estimated marginal likelihoods with an analytically tractable example from Kruschke's book "Doing Bayesian Data Analysis". In particular, we use the biased coin factory example from paragraph 10.2.
+
+We have two competing models, that differ in their prior distribution for the probability of heads in a binomial likelihood.
+For the prior probability distribution, a beta distribution is used. One model ("the tail biased factory") generates coins that are distributed around mode $\omega$ 0.25, with a "concentration" of $\kappa$ = 12. The other model ("the heads biased factory") generates coins that are distributed around a mode $\omega$ 0.75, als with a concentration of $\kappa$ = 12. This translates to particular a/b parameters of the beta distribution.
+
+We observe 6 heads after 9 flips. We are interested in the relative plausibility of which model has generated the data (which factory has produced the coin that generated the data).
+
+# Load packages
+
+```{r}
+rm(list = ls())
+library("bridgesampling")
+library("rstan")
+```
+# Display beta-binomial model
+
+```{r, echo=FALSE, comment=NA}
+file_path <- "dbda_biased_coin_factory.stan";
+lines <- readLines(file_path, encoding="ASCII");
+for (n in 1:length(lines)) cat(lines[n],'\n');
+```
+### fit models
+
+```{r}
+set.seed(1)
+stanfit_H0 <- stan(file = "dbda_biased_coin_factory.stan",
+                   data = list(y = 6,
+                               T = 9, beta_a = 3.5, beta_b = 8.5),
+                   iter = 15500, warmup = 500,
+                   chains = 4, seed = 1)
+stanfit_H1 <- stan(file = "dbda_biased_coin_factory.stan",
+                   data = list(y = 6,
+                               T = 9, beta_a = 8.5, beta_b = 3.5),
+                   iter = 15500, warmup = 500,
+                   chains = 4, seed = 1)
+```
+
+# compute (log) marginal likelihoods
+
+```{r}
+set.seed(1)
+bridge_H0 <- bridge_sampler(stanfit_H0)
+bridge_H0
+
+bridge_H1 <- bridge_sampler(stanfit_H1)
+bridge_H1
+```
+
+# Compute approximate percentage errors
+
+```{r}
+error_measures(bridge_H0)$percentage
+
+error_measures(bridge_H1)$percentage
+```
+
+The marginal likelihoods differ from Kruschke's probabilities.
+This is because he does not use the binomial distribution, but uses a bernoulli likelihood for the outcome of a set of coin flips.
+
+```{r}
+exp(bridge_H0$logml)
+exp(bridge_H1$logml)
+
+exp(bridge_H0$logml)/exp(bridge_H1$logml)
+```
+
+
+# compute Bayes factor
+
+```{r}
+bf(bridge_H0, bridge_H1)
+```
+
+This compares nicely with the analytically calculated value of 0.213
+
+# Calculated posterior model probabilities given equal prior probability
+
+```{r}
+post1 <- post_prob(bridge_H0, bridge_H1)
+print(post1)
+```
+
